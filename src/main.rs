@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer};
 use chrono::{Datelike, DateTime, Local, Weekday};
 use lazy_static::lazy_static;
 use reqwest::Client;
@@ -13,8 +13,10 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
 
 use substitution_pdf_to_json::SubstitutionSchedule;
+use crate::json_endpoint::get_schoolday_pdf_json;
 
 mod util;
+mod json_endpoint;
 
 const TEMP_ROOT_DIR: &str = "/tmp/school-substitution-scanner-temp-dir";
 const SOURCE_URLS: [&str; 5] = [
@@ -74,25 +76,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
-	tokio::spawn(async {
-		HttpServer::new(move || {
-			// let json_config = web::JsonConfig::default()
-			// 	.limit(4096);
+	HttpServer::new(move || {
+		// let json_config = web::JsonConfig::default()
+		// 	.limit(4096);
 
-			App::new()
-				.service(web::scope("/user")
-					.service(create_user)
-					.service(get_user)
-					.service(login)
-				)
-		})
-			.bind("127.0.0.1:8080")?
-			.run()
-			.await?;
-	});
+		App::new()
+			.service(get_schoolday_pdf_json)
+	})
+		.bind("127.0.0.1:8080")?
+		.run()
+		.await?;
 
 	Ok(())
 }
+
 
 /// Downloads the pdf of the current weekday, converts it to a json and adds it to the map of jsons.
 #[allow(clippy::or_fun_call)]
