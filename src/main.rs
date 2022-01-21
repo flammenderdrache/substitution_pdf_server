@@ -9,10 +9,13 @@ use actix_web::{App, HttpServer};
 use chrono::{Datelike, DateTime, Local, Weekday};
 use lazy_static::lazy_static;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
+use tracing_core::Level;
+use tracing_subscriber::EnvFilter;
 
-use substitution_pdf_to_json::SubstitutionSchedule;
 use crate::json_endpoint::get_schoolday_pdf_json;
 
 mod util;
@@ -34,7 +37,17 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	tracing_subscriber::fmt::init();
+
+	let env_filter = EnvFilter::from_default_env()
+		.add_directive(Level::INFO.into())
+		.add_directive("lopdf=error".parse()?);
+
+	tracing_subscriber::fmt()
+		.with_env_filter(env_filter)
+		.with_line_number(true)
+		.with_file(true)
+		.init();
+
 
 	// Make sure the temp path exists
 	std::fs::create_dir_all(TEMP_ROOT_DIR)?;
@@ -120,7 +133,7 @@ async fn check_weekday_pdf(day: Schoolday, pdf_getter: Arc<SubstitutionPDFGetter
 }
 
 /// Enum with the weekdays where a Substitution PDF is available.
-#[derive(Debug, PartialOrd, PartialEq, Clone, Copy, Hash, Eq)]
+#[derive(Debug, PartialOrd, PartialEq, Clone, Copy, Hash, Eq, Serialize, Deserialize)]
 pub enum Schoolday {
 	Monday = 0,
 	Tuesday = 1,
@@ -169,6 +182,7 @@ impl From<Weekday> for Schoolday {
 	}
 }
 
+#[derive(Debug)]
 pub struct SubstitutionPDFGetter<'a> {
 	urls: [&'a str; 5],
 	client: Client,
