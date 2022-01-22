@@ -11,6 +11,7 @@ use chrono::{Local, NaiveDate, Offset, Utc};
 use lopdf::Document;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::{debug};
 
 /// One column with Substitutions from the PDF
 #[derive(Serialize, Deserialize, PartialOrd, PartialEq, Debug)]
@@ -108,7 +109,7 @@ impl SubstitutionSchedule {
 			Utc.fix(),
 		).and_hms_milli(0, 0, 0, 0).timestamp_millis();
 
-
+		debug!("Calling tabula");
 		let output = Command::new("java")
 			.arg("-jar")
 			.arg("./tabula/tabula.jar")
@@ -120,6 +121,7 @@ impl SubstitutionSchedule {
 			.arg(path)
 			.output()?;
 
+		debug!("Parsing tabulas json");
 		let table = parse_tabula_json(str::from_utf8(&output.stdout).unwrap())?;
 
 		Ok(Self::from_table(&table, date))

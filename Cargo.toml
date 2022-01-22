@@ -9,6 +9,7 @@ edition = "2021"
 substitution_pdf_to_json = { path = "./substitution_pdf_to_json" }
 tokio = { version = "1.15.0", features = ["full"] }
 actix-web = "4.0.0-beta.20"
+actix-cors = "0.6.0-beta.8"
 
 tracing = "0.1.29"
 tracing-subscriber = { version = "0.3.6", features = [ "env-filter" ] }

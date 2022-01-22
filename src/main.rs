@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use actix_cors::Cors;
 
 use actix_web::{App, HttpServer};
 use chrono::{Datelike, DateTime, Local, Weekday};
@@ -37,9 +38,8 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
 	let env_filter = EnvFilter::from_default_env()
-		.add_directive(Level::INFO.into())
+		.add_directive(Level::DEBUG.into())
 		.add_directive("lopdf=error".parse()?);
 
 	tracing_subscriber::fmt()
@@ -89,14 +89,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
+	info!("Starting actix server...");
 	HttpServer::new(move || {
 		// let json_config = web::JsonConfig::default()
 		// 	.limit(4096);
 
+		let cors = Cors::default()
+			.allowed_methods(vec!["GET", "POST"])
+			.allow_any_origin()
+			.allow_any_header()
+			.max_age(3600);
+
 		App::new()
+			.wrap(cors)
 			.service(get_schoolday_pdf_json)
 	})
-		.bind("127.0.0.1:8080")?
+		.bind("127.0.0.1:8081")?
 		.run()
 		.await?;
 
@@ -110,21 +118,37 @@ async fn check_weekday_pdf(day: Schoolday, pdf_getter: Arc<SubstitutionPDFGetter
 	info!("Checking PDF for {}", day);
 	let temp_dir_path = util::make_temp_dir();
 	let temp_file_name = util::get_random_name();
+	debug!("Created temp dir and got a random file name");
 	let temp_file_path = format!("{}/{}", temp_dir_path, temp_file_name);
 	let temp_file_path = Path::new(&temp_file_path);
+	debug!("Created temp dir");
 
+	debug!("Getting pdf for {day}");
 	let pdf = pdf_getter.get_weekday_pdf(day).await?;
+	debug!("Writing PDF to disk at {}", temp_file_path.display());
 	let mut temp_pdf_file = std::fs::File::create(temp_file_path).expect("Couldn't create temp pdf file");
 	temp_pdf_file.write_all(&pdf)?;
+	debug!("Wrote PDF to disk");
 
+	debug!("Creating schedule.");
 	let new_schedule = SubstitutionSchedule::from_pdf(temp_file_path)?;
+	debug!("Created schedule!");
 	let schedule_json = serde_json::to_string_pretty(&new_schedule).expect("Couldn't write the new Json");
 
 	{
-		let mut jsons = PDF_JSON_STORE.write().await;
-		let _ = jsons.insert(day, schedule_json);
+		let mut json_store = PDF_JSON_STORE.write().await;
+
+		info!("Adding Json for {day} to the list");
+		let old = json_store.insert(day, schedule_json);
+
+		std::mem::drop(json_store);
+
+		if let Some(_old_json) = old {
+			debug!("Removed old json from the store.");
+		}
 	}
 
+	info!("Removing pdf and accompanying temp directory");
 	std::fs::remove_file(temp_file_path)?;
 	std::fs::remove_dir(temp_dir_path)?;
 
