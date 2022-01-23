@@ -102,7 +102,7 @@ async fn update_db(pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPoo
 		r#"
 		INSERT INTO substitution_json
 		VALUES($1, $2, $3)
-		 "#,
+		"#,
 		pdf_date,
 		insertion_time,
 		json
