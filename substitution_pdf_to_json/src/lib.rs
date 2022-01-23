@@ -72,11 +72,11 @@ impl Display for SubstitutionColumn {
 /// Contains the extracted PDF data of the schedule PDF
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubstitutionSchedule {
-	/// The creation date inside the PDF
+	/// The creation date inside the PDF in milliseconds.
 	pub pdf_issue_date: i64,
-	/// The name of the class is the Key and the Value is a Substitutions struct
+	/// The name of the class is the Key and the Value is a Substitutions struct.
 	entries: HashMap<String, SubstitutionColumn>,
-	/// The time when the struct was created, used for comparing the age
+	/// The time when the struct was created, used for comparing the age.
 	struct_time: u64,
 }
 
