@@ -25,6 +25,7 @@ chrono = "0.4.19"
 
 lazy_static = "1.4.0"
 
+sqlx = "0.5.10"
 
 [profile.production]
 inherits = "release"
