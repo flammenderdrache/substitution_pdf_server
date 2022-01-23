@@ -25,9 +25,10 @@ chrono = "0.4.19"
 
 lazy_static = "1.4.0"
 
-sqlx = "0.5.10"
+sqlx = { version = "0.5.10", features = ["postgres", "runtime-tokio-native-tls"] }
 
 sha2 = "0.10.1"
+hex = "0.4.3"
 
 [profile.production]
 inherits = "release"
