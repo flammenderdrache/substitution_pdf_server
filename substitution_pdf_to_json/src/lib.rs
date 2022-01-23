@@ -73,7 +73,7 @@ impl Display for SubstitutionColumn {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubstitutionSchedule {
 	/// The creation date inside the PDF
-	pub pdf_create_date: i64,
+	pub pdf_issue_date: i64,
 	/// The name of the class is the Key and the Value is a Substitutions struct
 	entries: HashMap<String, SubstitutionColumn>,
 	/// The time when the struct was created, used for comparing the age
@@ -145,7 +145,7 @@ impl SubstitutionSchedule {
 			let time_millis = since_the_epoch.as_millis() as u64;
 
 		Self {
-			pdf_create_date,
+			pdf_issue_date: pdf_create_date,
 			entries,
 			struct_time: time_millis,
 		}
