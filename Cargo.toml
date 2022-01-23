@@ -27,6 +27,8 @@ lazy_static = "1.4.0"
 
 sqlx = "0.5.10"
 
+sha2 = "0.10.1"
+
 [profile.production]
 inherits = "release"
 lto = "fat"
