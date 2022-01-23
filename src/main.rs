@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
 use std::path::Path;
@@ -11,6 +12,8 @@ use chrono::{Datelike, DateTime, Local, Weekday};
 use lazy_static::lazy_static;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sqlx::{PgPool, Pool, Postgres};
+use sqlx::postgres::PgPoolOptions;
 use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
@@ -21,6 +24,7 @@ use crate::json_endpoint::get_schoolday_pdf_json;
 
 mod util;
 mod json_endpoint;
+mod json_handler;
 
 const TEMP_ROOT_DIR: &str = "/tmp/school-substitution-scanner-temp-dir";
 const SOURCE_URLS: [&str; 5] = [
@@ -48,11 +52,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.with_file(true)
 		.init();
 
+	info!("Connecting to the database...");
+	let pool = PgPoolOptions::new()
+		.max_lifetime(Duration::from_secs(60 * 60 * 12)) // 12 hours
+		.min_connections(2)
+		.max_connections(5)
+		.connect(env::var("DATABASE_URL").expect("Couldn't find DB URL in env!").as_str())
+		.await?;
+	info!("Done!");
+
+	info!("Migrating the database...");
+	sqlx::migrate!()
+		.run(&pool)
+		.await?;
+	info!("Done!");
 
 	// Make sure the temp path exists
 	std::fs::create_dir_all(TEMP_ROOT_DIR)?;
 
-	tokio::spawn(async {
+	tokio::spawn(async move {
 		let pdf_getter = Arc::new(SubstitutionPDFGetter::default());
 		let mut counter: u32 = 0;
 
@@ -68,16 +86,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			local.weekday(),
 			next_valid_school_weekday,
 			day_after
-		);
+			);
 
 			let pdf_getter_arc = pdf_getter.clone();
-			if let Err(why) = check_weekday_pdf(next_valid_school_weekday, pdf_getter_arc).await {
-				error!("{}", why);
-			}
-
-			let pdf_getter_arc = pdf_getter.clone();
+			let pool_clone = pool.clone();
 			tokio::spawn(async move {
-				if let Err(why) = check_weekday_pdf(day_after, pdf_getter_arc).await {
+				if let Err(why) = check_weekday_pdf(
+					next_valid_school_weekday,
+					pdf_getter_arc,
+					pool_clone,
+				).await {
+					error!("{why}");
+				}
+			});
+
+			let pdf_getter_arc = pdf_getter.clone();
+			let pool_clone = pool.clone();
+			tokio::spawn(async move {
+				if let Err(why) = check_weekday_pdf(
+					day_after,
+					pdf_getter_arc,
+					pool_clone,
+				).await {
 					error!("{}", why);
 				}
 			});
@@ -114,7 +144,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Downloads the pdf of the current weekday, converts it to a json and adds it to the map of jsons.
 #[allow(clippy::or_fun_call)]
-async fn check_weekday_pdf(day: Schoolday, pdf_getter: Arc<SubstitutionPDFGetter<'_>>) -> Result<(), Box<dyn std::error::Error>> {
+async fn check_weekday_pdf(day: Schoolday, pdf_getter: Arc<SubstitutionPDFGetter<'_>>, pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
 	info!("Checking PDF for {}", day);
 	let temp_dir_path = util::make_temp_dir();
 	let temp_file_name = util::get_random_name();
