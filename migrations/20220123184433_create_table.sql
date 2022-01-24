@@ -2,7 +2,7 @@
 
 CREATE TABLE substitution_json
 (
-    hash           TEXT,
+    hash           TEXT UNIQUE ,
     pdf_date       TIMESTAMP NOT NULL,
     insertion_time TIMESTAMP,
     json           jsonb
