@@ -12,7 +12,7 @@ use chrono::{Datelike, DateTime, Local, Weekday};
 use lazy_static::lazy_static;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, Pool, Postgres};
+use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
@@ -21,6 +21,7 @@ use tracing_core::Level;
 use tracing_subscriber::EnvFilter;
 
 use crate::json_endpoint::get_schoolday_pdf_json;
+use crate::json_handler::JsonHandler;
 
 mod util;
 mod json_endpoint;
@@ -38,12 +39,14 @@ const PDF_GET_LOOP_SLEEP_TIME: Duration = Duration::from_secs(20);
 
 lazy_static! {
 	static ref PDF_JSON_STORE: RwLock<HashMap<Schoolday, String>> = RwLock::new(HashMap::new());
+	static ref JSON_HANDLER: JsonHandler = JsonHandler::new();
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let env_filter = EnvFilter::from_default_env()
-		.add_directive(Level::DEBUG.into())
+		.add_directive(Level::INFO.into())
+		.add_directive("substitution_pdf_server=debug".parse()?)
 		.add_directive("lopdf=error".parse()?);
 
 	tracing_subscriber::fmt()
@@ -145,43 +148,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Downloads the pdf of the current weekday, converts it to a json and adds it to the map of jsons.
 #[allow(clippy::or_fun_call)]
 async fn check_weekday_pdf(day: Schoolday, pdf_getter: Arc<SubstitutionPDFGetter<'_>>, pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
-	info!("Checking PDF for {}", day);
-	let temp_dir_path = util::make_temp_dir();
-	let temp_file_name = util::get_random_name();
-	debug!("Created temp dir and got a random file name");
-	let temp_file_path = format!("{}/{}", temp_dir_path, temp_file_name);
-	let temp_file_path = Path::new(&temp_file_path);
-	debug!("Created temp dir");
-
 	debug!("Getting pdf for {day}");
 	let pdf = pdf_getter.get_weekday_pdf(day).await?;
-	debug!("Writing PDF to disk at {}", temp_file_path.display());
-	let mut temp_pdf_file = std::fs::File::create(temp_file_path).expect("Couldn't create temp pdf file");
-	temp_pdf_file.write_all(&pdf)?;
-	debug!("Wrote PDF to disk");
 
-	debug!("Creating schedule.");
-	let new_schedule = SubstitutionSchedule::from_pdf(temp_file_path)?;
-	debug!("Created schedule!");
-	let schedule_json = serde_json::to_string_pretty(&new_schedule).expect("Couldn't write the new Json");
-
-	{
-		let mut json_store = PDF_JSON_STORE.write().await;
-
-		info!("Adding Json for {day} to the list");
-		let old = json_store.insert(day, schedule_json);
-
-		std::mem::drop(json_store);
-
-		if let Some(_old_json) = old {
-			debug!("Removed old json from the store.");
-		}
-	}
-
-	info!("Removing pdf and accompanying temp directory");
-	std::fs::remove_file(temp_file_path)?;
-	std::fs::remove_dir(temp_dir_path)?;
-
+	JSON_HANDLER.update(day, pdf, pool).await?;
 
 	Ok(())
 }

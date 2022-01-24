@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use chrono::{NaiveDateTime, Utc};
 use sha2::{Sha512, Digest};
-use sqlx::{PgPool, Pool, Postgres};
+use sqlx::PgPool;
 use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
@@ -25,6 +25,8 @@ impl JsonHandler {
 		}
 	}
 
+	/// Updates the internal json store.
+	/// Also saves the json in the database.
 	pub async fn update(&self, day: Schoolday, pdf: Vec<u8>, pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
 		let mut hasher = Sha512::new();
 		Digest::update(&mut hasher, &pdf);
@@ -71,7 +73,7 @@ impl JsonHandler {
 			let pdf_date = NaiveDateTime::from_timestamp(pdf_date, 0);
 			let json_value = serde_json::to_value(new_schedule).unwrap();
 
-			update_db(hash, pdf_date, json_value, pool)
+			update_db(hash, pdf_date, json_value, pool).await;
 		});
 
 		{
@@ -90,6 +92,16 @@ impl JsonHandler {
 		std::fs::remove_dir(temp_dir_path).expect("Error removing temp dir");
 
 		Ok(())
+	}
+
+	/// Gets a json from the internal json store.
+	pub async fn get_json(&self, day: Schoolday) -> Option<String> {
+		let jsons = self.jsons.read().await;
+		if let Some(json) = jsons.get(&day) {
+			Some(json.clone())
+		} else {
+			None
+		}
 	}
 }
 
