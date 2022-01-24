@@ -45,7 +45,7 @@ impl JsonHandler {
 		{
 			trace!("Putting new hash into hash store.");
 			let mut hashes = self.hashes.write().await;
-			let _ = hashes.insert(day, hash);
+			let _ = hashes.insert(day, hash.clone());
 		}
 
 		debug!("Creating temp dir to store pdf for tabula...");
@@ -71,7 +71,7 @@ impl JsonHandler {
 			let pdf_date = NaiveDateTime::from_timestamp(pdf_date, 0);
 			let json_value = serde_json::to_value(new_schedule).unwrap();
 
-			update_db(pdf_date, json_value, pool)
+			update_db(hash, pdf_date, json_value, pool)
 		});
 
 		{
@@ -94,15 +94,16 @@ impl JsonHandler {
 }
 
 /// Inserts the json into the db.
-async fn update_db(pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPool) {
+async fn update_db(hash: String, pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPool) {
 	let insertion_time = Utc::now();
 	let insertion_time = insertion_time.naive_utc();
 
 	let query_result = sqlx::query!(
 		r#"
 		INSERT INTO substitution_json
-		VALUES($1, $2, $3)
+		VALUES($1, $2, $3, $4)
 		"#,
+		hash,
 		pdf_date,
 		insertion_time,
 		json
