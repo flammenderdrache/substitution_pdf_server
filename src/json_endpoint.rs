@@ -1,6 +1,5 @@
 use actix_web::{get, HttpResponse, Responder, web};
 use crate::{JSON_HANDLER, Schoolday};
-use crate::PDF_JSON_STORE;
 
 #[get("/{schoolday}")]
 pub async fn get_schoolday_pdf_json(day: web::Path<Schoolday>) -> impl Responder {

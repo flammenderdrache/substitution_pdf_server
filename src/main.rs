@@ -1,8 +1,5 @@
-use std::collections::HashMap;
 use std::env;
 use std::fmt::{Display, Formatter};
-use std::io::Write;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use actix_cors::Cors;
@@ -14,8 +11,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use substitution_pdf_to_json::SubstitutionSchedule;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
 use tracing_core::Level;
 use tracing_subscriber::EnvFilter;
@@ -38,7 +33,6 @@ const SOURCE_URLS: [&str; 5] = [
 const PDF_GET_LOOP_SLEEP_TIME: Duration = Duration::from_secs(20);
 
 lazy_static! {
-	static ref PDF_JSON_STORE: RwLock<HashMap<Schoolday, String>> = RwLock::new(HashMap::new());
 	static ref JSON_HANDLER: JsonHandler = JsonHandler::new();
 }
 
