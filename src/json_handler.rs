@@ -8,6 +8,8 @@ use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
 use crate::{Schoolday, util};
+use std::fs;
+use crate::util::get_today_string;
 
 pub struct JsonHandler {
 	jsons: RwLock<HashMap<Schoolday, String>>,
@@ -68,13 +70,13 @@ impl JsonHandler {
 		let json = serde_json::to_string(&new_schedule)?;
 		debug!("Created json!");
 
-		debug!("Spawning database update task.");
+		debug!("Spawning database update and pdf save task.");
 		tokio::spawn(async move {
 			let pdf_date = &new_schedule.pdf_issue_date / 1000; // Its in milliseconds but we need seconds.
 			let pdf_date = NaiveDateTime::from_timestamp(pdf_date, 0);
 			let json_value = serde_json::to_value(new_schedule).unwrap();
 
-			update_db(hash, pdf_date, json_value, pool).await;
+			update_db(&hash, pdf_date, json_value, pool).await;
 		});
 
 		{
@@ -103,7 +105,7 @@ impl JsonHandler {
 }
 
 /// Inserts the json into the db.
-async fn update_db(hash: String, pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPool) {
+async fn update_db(hash: &String, pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPool) {
 	let insertion_time = Utc::now();
 	let insertion_time = insertion_time.naive_utc();
 
@@ -123,4 +125,20 @@ async fn update_db(hash: String, pdf_date: NaiveDateTime, json: serde_json::Valu
 	if let Err(why) = query_result {
 		error!("{why}");
 	}
+}
+
+/// Saves the PDF to disk
+async fn save_pdf_to_disk(day: Schoolday, pdf: &[u8]) -> Result<(), Err>{
+	let today = get_today_string();
+	let location = format!("{PDF_STORE_LOCATION}/{today}");
+	fs::create_dir(location)?;
+
+	let mut hasher = Sha512::new();
+	Digest::update(&mut hasher, &pdf);
+	let hash_bytes = hasher.finalize();
+	let hash = hex::encode(hash_bytes);
+
+	let file_location = format!("{location}/{hash}");
+
+	Ok(())
 }

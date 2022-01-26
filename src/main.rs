@@ -33,6 +33,7 @@ const SOURCE_URLS: [&str; 5] = [
 	"https://buessing.schule/plaene/VertretungsplanA4_Freitag.pdf",
 ];
 const PDF_GET_LOOP_SLEEP_TIME: Duration = Duration::from_secs(20);
+const PDF_STORE_LOCATION: &str = "./pdfs";
 
 lazy_static! {
 	static ref JSON_HANDLER: JsonHandler = JsonHandler::new();
@@ -68,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Make sure the temp path exists
 	std::fs::create_dir_all(TEMP_ROOT_DIR)?;
+	std::fs::create_dir_all(PDF_STORE_LOCATION)?;
 
 	tokio::spawn(async move {
 		let pdf_getter = Arc::new(SubstitutionPDFGetter::default());
