@@ -27,6 +27,7 @@ impl JsonHandler {
 
 	/// Updates the internal json store.
 	/// Also saves the json in the database.
+	#[allow(clippy::similar_names)]
 	pub async fn update(&self, day: Schoolday, pdf: Vec<u8>, pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
 		let mut hasher = Sha512::new();
 		Digest::update(&mut hasher, &pdf);
@@ -97,11 +98,7 @@ impl JsonHandler {
 	/// Gets a json from the internal json store.
 	pub async fn get_json(&self, day: Schoolday) -> Option<String> {
 		let jsons = self.jsons.read().await;
-		if let Some(json) = jsons.get(&day) {
-			Some(json.clone())
-		} else {
-			None
-		}
+		jsons.get(&day).map(std::clone::Clone::clone)
 	}
 }
 
@@ -124,6 +121,6 @@ async fn update_db(hash: String, pdf_date: NaiveDateTime, json: serde_json::Valu
 		.await;
 
 	if let Err(why) = query_result {
-		error!("{why}")
+		error!("{why}");
 	}
 }

@@ -6,7 +6,7 @@ pub async fn get_schoolday_pdf_json(day: web::Path<Schoolday>) -> impl Responder
 	if let Some(json) = JSON_HANDLER.get_json(*day).await {
 		return HttpResponse::Ok()
 			.content_type("application/json")
-			.body(json.clone());
+			.body(json);
 	}
 
 	HttpResponse::NoContent()

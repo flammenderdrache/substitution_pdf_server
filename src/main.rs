@@ -1,3 +1,5 @@
+#![allow(clippy::let_underscore_drop)]
+
 use std::env;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -163,6 +165,7 @@ pub enum Schoolday {
 impl Schoolday {
 	//It is not &self, just self here due to https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
 	//Thank clippy :p
+	#[must_use]
 	pub fn next_day(self) -> Self {
 		match self {
 			Schoolday::Monday => Schoolday::Tuesday,
@@ -207,6 +210,7 @@ pub struct SubstitutionPDFGetter<'a> {
 }
 
 impl<'a> SubstitutionPDFGetter<'a> {
+	#[must_use]
 	pub fn new(client: Client) -> Self {
 		Self {
 			urls: SOURCE_URLS,
