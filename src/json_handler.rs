@@ -89,8 +89,8 @@ impl JsonHandler {
 		}
 
 		info!("Removing temp pdf file and accompanying temp directory.");
-		std::fs::remove_file(temp_file_path).expect("Error removing temp file.");
-		std::fs::remove_dir(temp_dir_path).expect("Error removing temp dir");
+		std::fs::remove_file(temp_file_path)?;
+		std::fs::remove_dir(temp_dir_path)?;
 
 		Ok(())
 	}
