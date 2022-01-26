@@ -220,6 +220,12 @@ impl<'a> SubstitutionPDFGetter<'a> {
 
 	/// Returns result with an Err or a Vector with the binary data of the request-response
 	/// Does not check if the response is valid, this is the responsibility of the caller.
+	///
+	/// # Errors
+	///
+	/// Returns `Err` if there was a problem while fetching the PDF for the requested day.
+	///
+	/// Also returns `Err` if there was a problem building the reqwest client.
 	pub async fn get_weekday_pdf(&self, day: Schoolday) -> Result<Vec<u8>, reqwest::Error> {
 		let url = self.urls[day as usize];
 		let request = self.client
