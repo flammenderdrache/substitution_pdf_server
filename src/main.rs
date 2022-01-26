@@ -163,6 +163,14 @@ pub enum Schoolday {
 }
 
 impl Schoolday {
+	/// Returns the next valid school day, from the given day.
+	/// # Examples
+	///
+	/// ```
+	/// let today = Schoolday::Monday;
+	/// let next_valid_day = today.next_day();
+	/// ```
+
 	//It is not &self, just self here due to https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
 	//Thank clippy :p
 	#[must_use]
