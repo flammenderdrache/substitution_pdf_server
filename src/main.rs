@@ -225,8 +225,7 @@ impl<'a> SubstitutionPDFGetter<'a> {
 		let request = self.client
 			.get(url)
 			.header("Authorization", "Basic aGJzdXNlcjpoYnNwYXNz")
-			.build()
-			.unwrap();
+			.build()?;
 
 		let response = self.client.execute(request).await?;
 		let bytes = response.bytes().await?;
