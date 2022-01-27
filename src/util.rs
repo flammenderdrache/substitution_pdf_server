@@ -3,6 +3,8 @@ use tracing::{trace};
 use uuid::Uuid;
 use crate::TEMP_ROOT_DIR;
 
+/// Returns a random name (UUID).
+/// Used for temp directories and temp files for example.
 pub fn get_random_name() -> String {
 	trace!("Returning random name");
 	let random_name = Uuid::new_v4();
@@ -10,6 +12,7 @@ pub fn get_random_name() -> String {
 	format!("{random_name}")
 }
 
+/// Creates a temp dir and returns the path as String.
 pub fn make_temp_dir() -> String {
 	trace!("Creating temp directory");
 	let temp_dir_name = get_random_name();
