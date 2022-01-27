@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use sha2::{Sha512, Digest};
 use sqlx::PgPool;
 use substitution_pdf_to_json::SubstitutionSchedule;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, trace};
 use crate::{Schoolday, util};
-use std::fs;
-use crate::util::get_today_string;
+use tokio::io::AsyncWriteExt;
+use crate::PDF_STORE_LOCATION;
 
 pub struct JsonHandler {
 	jsons: RwLock<HashMap<Schoolday, String>>,
@@ -73,11 +73,16 @@ impl JsonHandler {
 
 		debug!("Spawning database update and pdf save task.");
 		tokio::spawn(async move {
-			let pdf_date = &new_schedule.pdf_issue_date / 1000; // Its in milliseconds but we need seconds.
-			let pdf_date = NaiveDateTime::from_timestamp(pdf_date, 0);
+			let pdf_date_time = Local.timestamp(&new_schedule.pdf_issue_date / 1000, 0);
+
+			if let Err(why) = save_pdf_to_disk(day, &pdf, &pdf_date_time).await {
+				error!("{why}");
+			}
+
 			let json_value = serde_json::to_value(new_schedule).unwrap();
 
-			update_db(&hash, pdf_date, json_value, pool).await;
+			update_db(&hash, &pdf_date_time, json_value, pool).await;
+
 		});
 
 		{
@@ -106,9 +111,10 @@ impl JsonHandler {
 }
 
 /// Inserts the json into the db.
-async fn update_db(hash: &String, pdf_date: NaiveDateTime, json: serde_json::Value, pool: PgPool) {
+async fn update_db(hash: &str, pdf_date: &DateTime<Local>, json: serde_json::Value, pool: PgPool) {
 	let insertion_time = Utc::now();
 	let insertion_time = insertion_time.naive_utc();
+	let pdf_date = pdf_date.naive_utc();
 
 	let query_result = sqlx::query!(
 		r#"
@@ -129,17 +135,25 @@ async fn update_db(hash: &String, pdf_date: NaiveDateTime, json: serde_json::Val
 }
 
 /// Saves the PDF to disk
-async fn save_pdf_to_disk(day: Schoolday, pdf: &[u8]) -> Result<(), Err>{
-	let today = get_today_string();
-	let location = format!("{PDF_STORE_LOCATION}/{today}");
-	fs::create_dir(location)?;
+async fn save_pdf_to_disk(day: Schoolday, pdf: &[u8], time: &DateTime<Local>) -> Result<(), Box<dyn std::error::Error>>{
+	let date = time.format("%F");
+	let location = format!("{PDF_STORE_LOCATION}/{date}-{day}");
+	tokio::fs::create_dir(&location).await?;
 
-	let mut hasher = Sha512::new();
-	Digest::update(&mut hasher, &pdf);
-	let hash_bytes = hasher.finalize();
-	let hash = hex::encode(hash_bytes);
+	let time = Local::now();
+	let time = time.format("%F-%R");
+	let file_location = format!("{location}/{time}");
+	let path = Path::new(&file_location);
 
-	let file_location = format!("{location}/{hash}");
+	if !path.exists() {
+		let mut file = tokio::fs::OpenOptions::new()
+			.write(true)
+			.create(true)
+			.open(path)
+			.await?;
+
+		file.write(pdf).await?;
+	}
 
 	Ok(())
 }

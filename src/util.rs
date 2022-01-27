@@ -1,5 +1,4 @@
 use std::path::Path;
-use chrono::Utc;
 use tracing::{trace};
 use uuid::Uuid;
 use crate::TEMP_ROOT_DIR;
@@ -23,9 +22,4 @@ pub fn make_temp_dir() -> String {
 	trace!("Created temp dir {temp_dir}");
 
 	temp_dir
-}
-
-pub fn get_today_string() -> String {
-	let today = Utc::today();
-	format!("{}", today.format("%F"))
 }
