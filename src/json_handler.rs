@@ -44,7 +44,8 @@ impl JsonHandler {
 			}
 		}
 
-		// Drop the read lock as it is not needed anymore
+		// Drop the read lock as it is not needed anymore.
+		// We would also deadlock as we request a read lock next.
 		std::mem::drop(hashes);
 
 		{
